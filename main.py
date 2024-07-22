@@ -6,17 +6,9 @@
 from threading import Thread
 from tkinter.messagebox import showerror
 from todo.task import *
-
-try:
-    from playsound import playsound
-except(ModuleNotFoundError):
-    playsound = lambda void_arg: ""
-
+from subprocess import call
 
 icon_path = "data\\img\\icon.ico"
-tone_path = "data\\audio\\tone.mp3"
-
-beep_tone = lambda : Thread(target=playsound, kwargs={"sound":tone_path}).start()
 
 class ToDoManagerGUI(tk.Tk):
     def __init__(self):
@@ -29,6 +21,7 @@ class ToDoManagerGUI(tk.Tk):
         #                           ROOT WINDOW CONFIGURATION
         #-------------------------------------------------------------------------------
         
+        self.locked = False
         geometry = "800x750+0+0"
         opaque_level = 0.95
         maxsize = (800, 750) # Width, Height
@@ -48,6 +41,7 @@ class ToDoManagerGUI(tk.Tk):
         self.columnconfigure(index=4, weight=1)
 
         self.index_error_response = lambda action: showerror("select task", message=f"Please select task to {action}")
+        self.unlock_error_response = lambda left: showerror("tasks not complete", message=f"You still have {left} tasks left to complete")
         
         #------------------------------------------------------------------------------
         self.__build_components()
@@ -122,7 +116,6 @@ class ToDoManagerGUI(tk.Tk):
             self.completed_task_var.set(
                 self.completed_task_items
             ) # Updates list of tasks
-            beep_tone() # Plays out tone.mp3 audio file
             self.update() # Updates GUI window
     def add_task(self, completed: bool=False):
         """
@@ -133,7 +126,27 @@ class ToDoManagerGUI(tk.Tk):
             self.__add_task(completed)
         except (IndexError): 
             self.index_error_response("mark as completed")
-            
+
+    def start_lock(self):
+        if(not self.locked):
+            cmd = r"C:\Program Files\Cold Turkey\Cold Turkey Blocker.exe"
+            args = ['-start', 'Gaming']
+            call([cmd] + args, shell=False)
+            self.locked = True
+            showerror("Gaming locked", "Gaming is now locked until you finish all of your tasks!")
+            self.lock_button.config(text="unlock")
+        else:
+            left = len(self.ongoing_task_items)
+            if(left > 0):
+                self.unlock_error_response(left)
+            else:
+                cmd = r"C:\Program Files\Cold Turkey\Cold Turkey Blocker.exe"
+                args = ['-stop', 'Gaming']
+                call([cmd] + args, shell=False)
+                self.locked = False
+                showerror("Gaming unlocked", "Congratulations on completing your tasks for the day, enjoy your gaming!")
+                self.lock_button.config(text="lock")
+
     def __delete_task(self) -> str:
         """
         Removes selected ongoing task on Listbox and returns the removed task. 
@@ -274,6 +287,11 @@ class ToDoManagerGUI(tk.Tk):
         check_button = Button(button_frame, text="completed", command=lambda: self.add_task(True))
         check_button.grid(
             column=0, row=3, **button_grid_options
+        )
+
+        self.lock_button = Button(button_frame, text="lock", command= lambda: self.start_lock())
+        self.lock_button.grid(
+            column=0, row=4, **button_grid_options
         )
 
         clear_button = Button(
